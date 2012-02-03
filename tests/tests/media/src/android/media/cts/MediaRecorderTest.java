@@ -25,10 +25,13 @@ import android.hardware.Camera;
 import android.media.MediaRecorder;
 import android.media.MediaRecorder.OnErrorListener;
 import android.media.MediaRecorder.OnInfoListener;
+import android.media.MediaMetadataRetriever;
 import android.os.Environment;
 import android.test.ActivityInstrumentationTestCase2;
 import android.test.UiThreadTest;
 import android.view.Surface;
+
+import android.util.Log;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -36,15 +39,17 @@ import java.io.FileOutputStream;
 
 @TestTargetClass(MediaRecorder.class)
 public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
-
+    private final String TAG = "MediaRecorderTest";
     private final String OUTPUT_PATH;
     private final String OUTPUT_PATH2;
+    private static final float TOLERANCE = 0.0002f;
     private static final int RECORD_TIME = 3000;
     private static final int VIDEO_WIDTH = 176;
     private static final int VIDEO_HEIGHT = 144;
-    private static final int FRAME_RATE = 15;
     private static final long MAX_FILE_SIZE = 5000;
     private static final int MAX_DURATION_MSEC = 200;
+    private static final float LATITUDE = 0.0000f;
+    private static final float LONGITUDE  = -180.0f;
     private boolean mOnInfoCalled;
     private boolean mOnErrorCalled;
     private File mOutFile;
@@ -126,11 +131,6 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         ),
         @TestTargetNew(
             level = TestLevel.COMPLETE,
-            method = "setVideoFrameRate",
-            args = {int.class}
-        ),
-        @TestTargetNew(
-            level = TestLevel.COMPLETE,
             method = "setVideoSize",
             args = {int.class, int.class}
         ),
@@ -157,7 +157,6 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
         mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
-        mMediaRecorder.setVideoFrameRate(FRAME_RATE);
         mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
         mMediaRecorder.setPreviewDisplay(getActivity().getSurfaceHolder().getSurface());
         mMediaRecorder.prepare();
@@ -167,25 +166,45 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         checkOutputExist();
     }
 
-    @TestTargetNew(
-        level = TestLevel.COMPLETE,
-        method = "setCamera",
-        args = {Camera.class}
-    )
+    @TestTargets({
+        @TestTargetNew(
+            level = TestLevel.COMPLETE,
+            method = "setVideoFrameRate",
+            args = {int.class}
+        ),
+        @TestTargetNew(
+            level = TestLevel.COMPLETE,
+            method = "setLocation",
+            args = {float.class,float.class}
+        ),
+        @TestTargetNew(
+            level = TestLevel.COMPLETE,
+            method = "setCamera",
+            args = {Camera.class}
+        )
+    })
     @UiThreadTest
     public void testSetCamera() throws Exception {
         int nCamera = Camera.getNumberOfCameras();
         for (int cameraId = 0; cameraId < nCamera; cameraId++) {
             mCamera = Camera.open(cameraId);
+
+            // FIXME:
+            // We should add some test case to use Camera.Parameters.getPreviewFpsRange()
+            // to get the supported video frame rate range.
+            Camera.Parameters params = mCamera.getParameters();
+            int frameRate = params.getPreviewFrameRate();
+
             mCamera.unlock();
             mMediaRecorder.setCamera(mCamera);
             mMediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
             mMediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.DEFAULT);
             mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
-            mMediaRecorder.setVideoFrameRate(FRAME_RATE);
+            mMediaRecorder.setVideoFrameRate(frameRate);
             mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
             mMediaRecorder.setPreviewDisplay(getActivity().getSurfaceHolder().getSurface());
             mMediaRecorder.setOutputFile(OUTPUT_PATH);
+            mMediaRecorder.setLocation(LATITUDE, LONGITUDE);
 
             mMediaRecorder.prepare();
             mMediaRecorder.start();
@@ -194,7 +213,36 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
             assertTrue(mOutFile.exists());
 
             mCamera.release();
+            assertTrue(checkLocationInFile(OUTPUT_PATH));
         }
+    }
+
+    private boolean checkLocationInFile(String fileName) {
+        MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+        retriever.setDataSource(fileName);
+        String location = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_LOCATION);
+        if (location == null) {
+            Log.v(TAG, "No location information found in file " + fileName);
+            return false;
+        }
+
+        // parsing String location and recover the location inforamtion in floats
+        // Make sure the tolerance is very small - due to rounding errors?.
+        Log.v(TAG, "location: " + location);
+
+        // Get the position of the -/+ sign in location String, which indicates
+        // the beginning of the longtitude.
+        int index = location.lastIndexOf('-');
+        if (index == -1) {
+            index = location.lastIndexOf('+');
+        }
+        assertTrue("+ or - is not found", index != -1);
+        assertTrue("+ or - is only found at the beginning", index != 0);
+        float latitude = Float.parseFloat(location.substring(0, index - 1));
+        float longitude = Float.parseFloat(location.substring(index));
+        assertTrue("Incorrect latitude: " + latitude, Math.abs(latitude - LATITUDE) <= TOLERANCE);
+        assertTrue("Incorrect longitude: " + longitude, Math.abs(longitude - LONGITUDE) <= TOLERANCE);
+        return true;
     }
 
     private void checkOutputExist() {
@@ -236,11 +284,6 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         ),
         @TestTargetNew(
             level = TestLevel.COMPLETE,
-            method = "setVideoFrameRate",
-            args = {int.class}
-        ),
-        @TestTargetNew(
-            level = TestLevel.COMPLETE,
             method = "setVideoSize",
             args = {int.class, int.class}
         ),
@@ -274,13 +317,13 @@ public class MediaRecorderTest extends ActivityInstrumentationTestCase2<MediaStu
         mMediaRecorder.setOutputFile(OUTPUT_PATH2);
         mMediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
         mMediaRecorder.setPreviewDisplay(getActivity().getSurfaceHolder().getSurface());
-        mMediaRecorder.setVideoFrameRate(FRAME_RATE);
         mMediaRecorder.setVideoSize(VIDEO_WIDTH, VIDEO_HEIGHT);
         FileOutputStream fos = new FileOutputStream(OUTPUT_PATH2);
         FileDescriptor fd = fos.getFD();
         mMediaRecorder.setOutputFile(fd);
         long maxFileSize = MAX_FILE_SIZE * 10;
         recordMedia(maxFileSize, mOutFile2);
+        assertFalse(checkLocationInFile(OUTPUT_PATH2));
     }
 
     @TestTargets({

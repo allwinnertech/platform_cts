@@ -42,6 +42,7 @@ CTS_COVERAGE_TEST_CASE_LIST := \
 	CtsGestureTestCases \
 	CtsGraphicsTestCases \
 	CtsHardwareTestCases \
+	CtsHoloTestCases \
 	CtsJniTestCases \
 	CtsLocationTestCases \
 	CtsMediaTestCases \
@@ -59,7 +60,6 @@ CTS_COVERAGE_TEST_CASE_LIST := \
 	CtsTelephonyTestCases \
 	CtsTestStubs \
 	CtsTextTestCases \
-	CtsThemeTestCases \
 	CtsUtilTestCases \
 	CtsViewTestCases \
 	CtsWebkitTestCases \

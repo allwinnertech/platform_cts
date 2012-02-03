@@ -37,7 +37,7 @@ import android.view.Surface;
 
 class VideoSurfaceView extends GLSurfaceView {
     private static final String TAG = "VideoSurfaceView";
-    private static final int SLEEP_TIME = 1000;
+    private static final int SLEEP_TIME_MS = 1000;
 
     VideoRender mRenderer;
     private MediaPlayer mMediaPlayer = null;
@@ -62,26 +62,14 @@ class VideoSurfaceView extends GLSurfaceView {
     }
 
     public void startTest() throws Exception {
-        Thread.sleep(SLEEP_TIME);
+        Thread.sleep(SLEEP_TIME_MS);
         mMediaPlayer.start();
 
-        Thread.sleep(SLEEP_TIME * 5);
+        Thread.sleep(SLEEP_TIME_MS * 5);
         mMediaPlayer.setSurface(null);
 
-        Thread.sleep(SLEEP_TIME * 1);
-        SurfaceTexture surfaceTexture = new SurfaceTexture(0);
-        Surface surface = new Surface(surfaceTexture);
-        surface.release();
-        try {
-            mMediaPlayer.setSurface(surface);
-            throw new RuntimeException("setSurface with released Surface object didn't throw " +
-                    "IllegalArgumentException");
-        } catch (IllegalArgumentException e) {
-            // Expected
-        }
-
         while (mMediaPlayer.isPlaying()) {
-            Thread.sleep(SLEEP_TIME);
+            Thread.sleep(SLEEP_TIME_MS);
         }
     }
 
